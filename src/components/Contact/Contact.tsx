@@ -577,7 +577,9 @@ export default function Contact() {
             LET&apos;S MAKE SOMETHING GOOD
           </span>
 
-          <span
+          <div className="flex items-center gap-4">
+          <a
+            href="/privacy/"
             className="
               font-[family-name:var(--font-inter)]
               text-[8px]
@@ -585,10 +587,25 @@ export default function Contact() {
               uppercase
               tracking-[1px]
               text-[#111111]/45
+              underline-offset-2
+              hover:text-[#111111]
             "
           >
-            © 2026
-          </span>
+            Privacy Policy
+          </a>
+          <span
+            className="
+            font-[family-name:var(--font-inter)]
+            text-[8px]
+            font-medium
+              uppercase
+              tracking-[1px]
+              text-[#111111]/45
+            "
+            >
+              © 2026
+            </span>
+          </div>
         </div>
       </div>
     </section>
