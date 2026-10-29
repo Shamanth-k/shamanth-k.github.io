@@ -217,7 +217,7 @@ export default function Contact() {
           >
             Got an idea?
             <br />
-            Let's build
+            Let&apos;s build
             <br />
             something cool.
           </p>
@@ -246,7 +246,7 @@ export default function Contact() {
               hover:scale-[1.03]
             "
           >
-            LET'S TALK
+            LET&apos;S TALK
           </a>
         </div>
 
@@ -299,7 +299,7 @@ export default function Contact() {
                 text-[#111111]
               "
             >
-              Let's turn the idea into
+              Let&apos;s turn the idea into
               <br />
               something real.
             </p>
@@ -574,7 +574,7 @@ export default function Contact() {
               text-[#111111]/45
             "
           >
-            LET'S MAKE SOMETHING GOOD
+            LET&apos;S MAKE SOMETHING GOOD
           </span>
 
           <span
