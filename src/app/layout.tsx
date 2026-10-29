@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import {
   Inter,
   Poppins,
@@ -84,7 +85,7 @@ export const metadata: Metadata = {
     title: "Shamanth Krishna V R | Full-Stack Developer & DevOps Enthusiast",
     description:
       "Explore Shamanth Krishna V R's projects, technical skills, experience, and creative work.",
-    images: ["/about-photo.png"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
@@ -111,6 +112,7 @@ export default function RootLayout({
         className={`${inter.variable} ${poppins.variable} ${jersey15.variable} ${jersey10.variable} ${justAnotherHand.variable} ${justMeAgainDownHere.variable}`}
       >
         {children}
+        <GoogleAnalytics gaId="G-FST8C20J8Y" />
       </body>
     </html>
   );
