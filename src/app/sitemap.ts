@@ -1,14 +1,10 @@
 import type { MetadataRoute } from "next";
 
-export const dynamic = "force-static";
-
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: "https://YOUR-GITHUB-USERNAME.github.io/legacy-portfolio/",
+      url: "https://shamanth-k.github.io",
       lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 1,
     },
   ];
 }

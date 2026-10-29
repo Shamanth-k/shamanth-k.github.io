@@ -8,7 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap:
-      "https://YOUR-GITHUB-USERNAME.github.io/legacy-portfolio/sitemap.xml",
+    sitemap: "https://shamanth-k.github.io/sitemap.xml",
   };
 }
