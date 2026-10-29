@@ -1,0 +1,1705 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  isNavbarNavigating,
+  NAVBAR_NAVIGATION_END,
+  NAVBAR_NAVIGATION_START,
+} from "@/lib/navigation";
+
+const projects = [
+  {
+    number: "01",
+    title: "Passwordless Authentication System",
+    description:
+      "A secure passwordless authentication system using WebAuthn and FIDO2 for biometric and public-key based login.",
+    tech: "REACT · NODE.JS · WEBAUTHN · FIDO2 · EXPRESS",
+    githubUrl:
+      "https://github.com/Shamanth-k/passwordless-password-authentication-system",
+    liveUrl: null,
+    images: [
+      "register.jpg",
+      "pass key.jpg",
+      "login success.jpg",
+      "home sceen.jpg",
+      "authentication.jpg",
+    ].map(
+      (file) => `/project-images/password%20less/${encodeURIComponent(file)}`,
+    ),
+  },
+  {
+    number: "02",
+    title: "Cloud Media Gallery",
+    description:
+      "A cloud-based media gallery for managing images and videos with scalable AWS S3 storage.",
+    tech: "REACT · NODE.JS · MONGODB · EXPRESS · AWS S3",
+    githubUrl: "https://github.com/Shamanth-k/cloud-gallery",
+    liveUrl: null,
+    images: ["upload image.jpg", "login.jpg", "gallery.jpg"].map(
+      (file) => `/project-images/cloud-gallery/${encodeURIComponent(file)}`,
+    ),
+  },
+  {
+    number: "03",
+    title: "Art Gallery Management System",
+    description:
+      "A full-stack platform for managing artists, exhibitions, artwork and gallery operations with secure authentication.",
+    tech: "REACT · NODE.JS · SQL · EXPRESS · AUTH",
+    githubUrl: "https://github.com/Shamanth-k/Art-gallery",
+    liveUrl: null,
+    images: [
+      "admin exhibition page.jpg",
+      "admin artist page.jpg",
+      "add exhibition.jpg",
+      "add artist.jpg",
+      "all exhibition page.jpg",
+      "all artist page.jpg",
+      "buy ticket.jpg",
+      "home screen.jpg",
+      "signup page.jpg",
+      "my tickets.jpg",
+      "login page.jpg",
+    ].map((file) => `/project-images/art-gallery/${encodeURIComponent(file)}`),
+  },
+  {
+    number: "04",
+    title: "E-commerce Website for Handicrafts",
+    description:
+      "An online marketplace for handicrafts with dynamic products, shopping cart functionality and payment integration.",
+    tech: "REACT · NODE.JS · MONGODB · EXPRESS · PAYMENT",
+    githubUrl: "https://github.com/Shamanth-k/Roots-Tech",
+    liveUrl: null,
+  },
+  {
+    number: "05",
+    title: "Hostel Room Booking System",
+    description:
+      "A hostel accommodation platform for checking room availability, managing bookings and handling accommodation data.",
+    tech: "REACT · NODE.JS · MONGODB · EXPRESS",
+    githubUrl: "https://github.com/Shamanth-k/hostel-room-booking",
+    liveUrl: null,
+  },
+  {
+    number: "06",
+    title: "LifeLine — Emergency Healthcare",
+    description:
+      "An emergency healthcare platform connecting patients, ambulances and hospitals for faster emergency response.",
+    tech: "REACT · NODE.JS · MONGODB · EXPRESS",
+    githubUrl: "https://github.com/Shamanth-k/emergency-health-care-webapp-",
+    liveUrl: null,
+    images: [
+      "patient page.jpg",
+      "hospital page.jpg",
+      "homepage.jpg",
+      "ambulance page.jpg",
+    ].map(
+      (file) =>
+        `/project-images/lifeline%20project%20images/${encodeURIComponent(file)}`,
+    ),
+  },
+  {
+    number: "07",
+    title: "Personal Developer Portfolio",
+    description:
+      "A responsive developer portfolio showcasing projects, technical skills, experience and creative work.",
+    tech: "REACT · TAILWIND CSS · RESPONSIVE · NETLIFY",
+    githubUrl: "https://github.com/Shamanth-k/portfolio",
+    liveUrl: "https://shamanth-prfolio.netlify.app/",
+  },
+  {
+    number: "08",
+    title: "AI Blog Generator",
+    description:
+      "An AI-powered application that generates editable long-form blog content from short user prompts.",
+    tech: "REACT · NODE.JS · EXPRESS · HUGGING FACE · LLM",
+    githubUrl: "https://github.com/Shamanth-k/Blog-generator",
+    liveUrl: null,
+  },
+  {
+    number: "09",
+    title: "Gamification of Digital Laws",
+    description:
+      "A project exploring the use of gamification to make digital laws more engaging and accessible.",
+    tech: "",
+    githubUrl: "https://github.com/Shamanth-k/Gamification_DigitalLaws",
+    liveUrl: null,
+  },
+];
+
+/*
+ * Number of projects shown in one viewport (01 02 03 / 04 05 06 / 07 08 09 ...).
+ */
+const PROJECTS_PER_GROUP = 3;
+const GROUP_COUNT = Math.ceil(projects.length / PROJECTS_PER_GROUP);
+const LAST_GROUP_INDEX = GROUP_COUNT - 1;
+
+const CARD_HEIGHT = 190;
+const MOBILE_CARD_MIN_HEIGHT = 260;
+const GAP = 14;
+const CARD_SHADOW_OFFSET = 10; // the black offset card sticks out 10px below
+// 3*190 + 2*14 + 10 = 608
+const GROUP_HEIGHT =
+  PROJECTS_PER_GROUP * CARD_HEIGHT +
+  (PROJECTS_PER_GROUP - 1) * GAP +
+  CARD_SHADOW_OFFSET;
+const EXPANDED_HEIGHT = 598;
+
+const GROUP_TRANSITION_MS = 650;
+const TRANSITION_FAILSAFE_MS = GROUP_TRANSITION_MS + 200;
+const PIN_SETTLE_MS = 250; // ignore input right after pinning
+const EDGE_RELEASE_SETTLE_MS = GROUP_TRANSITION_MS + 250; // no release right after a group change
+const WHEEL_GESTURE_IDLE_MS = 160;
+const WHEEL_INPUT_GRACE_MS = 500;
+const TOUCH_INPUT_GRACE_MS = 1200;
+const JUMP_KEY_GRACE_MS = 1500;
+const NATIVE_JUMP_THRESHOLD = 40;
+const PIN_EPSILON = 1;
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+type Project = (typeof projects)[number];
+type GallerySelection = { project: Project; imageIndex: number };
+type ProjectsControllerState = "normal" | "pinned" | "transitioning" | "navbar";
+type ScrollDirection = "down" | "up";
+const projectImages = (project: Project) => project.images ?? [];
+
+function scrollInstantlyTo(top: number) {
+  const root = document.documentElement;
+  const previousBehavior = root.style.scrollBehavior;
+
+  root.style.scrollBehavior = "auto";
+  window.scrollTo({ top, behavior: "auto" });
+  root.style.scrollBehavior = previousBehavior;
+}
+
+/* True when the wheel/touch started inside the expanded card's own scroller AND it can still scroll that way. */
+function innerScrollerCanScroll(
+  target: EventTarget | null,
+  direction: ScrollDirection,
+) {
+  if (!(target instanceof Element)) return false;
+  const scroller = target.closest<HTMLElement>("[data-projects-scroll]");
+  if (!scroller) return false;
+  const max = scroller.scrollHeight - scroller.clientHeight;
+  if (max <= 1) return false;
+  return direction === "down"
+    ? scroller.scrollTop < max - 1
+    : scroller.scrollTop > 1;
+}
+
+export default function Projects() {
+  const sectionRef = useRef<HTMLElement | null>(null);
+
+  const activeGroupRef = useRef(0);
+  const [activeGroup, setActiveGroup] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(true);
+  const [controllerState, setControllerStateValue] =
+    useState<ProjectsControllerState>("normal");
+  const controllerStateRef = useRef<ProjectsControllerState>("normal");
+  const transitionIdRef = useRef(0);
+  const transitionTimerRef = useRef<number | null>(null);
+  const lastScrollYRef = useRef<number | null>(null);
+  const galleryOpenRef = useRef(false);
+  const lastLockActivityRef = useRef(0);
+
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [gallerySelection, setGallerySelection] =
+    useState<GallerySelection | null>(null);
+
+  const setControllerState = useCallback(
+    (nextState: ProjectsControllerState) => {
+      controllerStateRef.current = nextState;
+      setControllerStateValue(nextState);
+    },
+    [],
+  );
+
+  const setGroup = useCallback((group: number) => {
+    activeGroupRef.current = group;
+    setActiveGroup(group);
+  }, []);
+
+  const clearTransitionTimer = useCallback(() => {
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+  }, []);
+
+  const finishGroupTransition = useCallback(
+    (transitionId: number) => {
+      if (
+        transitionId !== transitionIdRef.current ||
+        controllerStateRef.current !== "transitioning"
+      )
+        return;
+      clearTransitionTimer();
+      setControllerState("pinned");
+    },
+    [clearTransitionTimer, setControllerState],
+  );
+
+  const handleGroupTransitionEnd = (
+    event: React.TransitionEvent<HTMLDivElement>,
+  ) => {
+    if (
+      event.target !== event.currentTarget ||
+      event.propertyName !== "transform"
+    )
+      return;
+    finishGroupTransition(transitionIdRef.current);
+  };
+
+  const changeGroup = useCallback(
+    (group: number) => {
+      if (controllerStateRef.current !== "pinned") return;
+      if (
+        group < 0 ||
+        group > LAST_GROUP_INDEX ||
+        group === activeGroupRef.current
+      )
+        return;
+
+      const transitionId = ++transitionIdRef.current;
+      lastLockActivityRef.current = performance.now();
+      setControllerState("transitioning");
+      setGroup(group);
+
+      // transitionend can be skipped (hidden tab, interrupted style change). Never stay locked.
+      clearTransitionTimer();
+      transitionTimerRef.current = window.setTimeout(
+        () => finishGroupTransition(transitionId),
+        TRANSITION_FAILSAFE_MS,
+      );
+    },
+    [clearTransitionTimer, finishGroupTransition, setControllerState, setGroup],
+  );
+
+  const openProject = (project: Project) => setSelectedProject(project);
+  const closeProject = () => setSelectedProject(null);
+
+  /*
+   * ==========================================================
+   * LIGHTBOX SCROLL LOCK
+   * ==========================================================
+   */
+  useEffect(() => {
+    if (!gallerySelection) return;
+    galleryOpenRef.current = true;
+
+    const originalY = window.scrollY;
+    const body = document.body;
+    const root = document.documentElement;
+    // Measure BEFORE hiding overflow; afterwards the scrollbar is gone and this reads 0.
+    const scrollbarGap = window.innerWidth - root.clientWidth;
+    const old = {
+      bodyOverflow: body.style.overflow,
+      rootOverflow: root.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+      paddingRight: body.style.paddingRight,
+    };
+
+    body.style.overflow = "hidden";
+    root.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${originalY}px`;
+    body.style.width = "100%";
+    if (scrollbarGap > 0) body.style.paddingRight = `${scrollbarGap}px`;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setGallerySelection(null);
+      if (event.key === "ArrowLeft")
+        setGallerySelection(
+          (current) =>
+            current && {
+              ...current,
+              imageIndex:
+                (current.imageIndex -
+                  1 +
+                  projectImages(current.project).length) %
+                projectImages(current.project).length,
+            },
+        );
+      if (event.key === "ArrowRight")
+        setGallerySelection(
+          (current) =>
+            current && {
+              ...current,
+              imageIndex:
+                (current.imageIndex + 1) %
+                projectImages(current.project).length,
+            },
+        );
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      body.style.overflow = old.bodyOverflow;
+      root.style.overflow = old.rootOverflow;
+      body.style.position = old.position;
+      body.style.top = old.top;
+      body.style.width = old.width;
+      body.style.paddingRight = old.paddingRight;
+      galleryOpenRef.current = false;
+      lastScrollYRef.current = null; // the restore below must not look like a scroll direction
+      scrollInstantlyTo(originalY);
+    };
+  }, [gallerySelection]);
+
+  /*
+   * ==========================================================
+   * PROJECTS SCROLL CONTROLLER
+   * ==========================================================
+   *
+   * - Position decides everything; wheel deltas are only used to pre-empt.
+   * - Entering from above  -> group 0.  Entering from below -> last group.
+   * - While pinned/transitioning, input is cancelled and the document is
+   *   re-aligned on every input.
+   * - Release happens at the first/last group after the settle period.
+   */
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const desktop = window.matchMedia(DESKTOP_QUERY);
+    setIsDesktop(desktop.matches);
+
+    let wheelIdleTimer: number | null = null;
+    let wheelConsumed = false;
+    let touchY: number | null = null;
+    let touchConsumed = false;
+    let inputGraceUntil = 0;
+    let jumpUntil = 0;
+
+    const isEnabled = () => desktop.matches && !galleryOpenRef.current;
+    const hasRecentInput = () => performance.now() < inputGraceUntil;
+    const isJumping = () => performance.now() < jumpUntil;
+    const noteInput = (graceMs: number) => {
+      inputGraceUntil = performance.now() + graceMs;
+      jumpUntil = 0;
+    };
+
+    const armWheelIdleTimer = () => {
+      if (wheelIdleTimer !== null) window.clearTimeout(wheelIdleTimer);
+      wheelIdleTimer = window.setTimeout(() => {
+        wheelConsumed = false;
+        wheelIdleTimer = null;
+      }, WHEEL_GESTURE_IDLE_MS);
+    };
+
+    // A gesture that pinned the section must not also advance a group.
+    const consumeActiveGesture = () => {
+      wheelConsumed = true;
+      armWheelIdleTimer();
+      if (touchY !== null) touchConsumed = true;
+    };
+
+    const navbarBusy = () => {
+      if (controllerStateRef.current === "navbar" && !isNavbarNavigating()) {
+        setControllerState("normal"); // END event was missed; don't stay locked out
+      }
+      return controllerStateRef.current === "navbar" || isNavbarNavigating();
+    };
+
+    // When Projects is fully off-screen, choose the group the next entry should show.
+    const syncGroupToPosition = () => {
+      const rect = section.getBoundingClientRect();
+      if (rect.bottom <= 0) {
+        if (activeGroupRef.current !== LAST_GROUP_INDEX)
+          setGroup(LAST_GROUP_INDEX);
+        return true;
+      }
+      if (rect.top >= window.innerHeight) {
+        if (activeGroupRef.current !== 0) setGroup(0);
+        return true;
+      }
+      return false;
+    };
+
+    const canPin = (direction: ScrollDirection, top: number, distance: number) => {
+      const height = section.offsetHeight;
+      return direction === "down"
+        ? activeGroupRef.current < LAST_GROUP_INDEX &&
+            top <= distance &&
+            top > -height
+        : // Up: pin as soon as the section's bottom edge is in (or about to enter)
+          // the viewport, so the page never scrolls through Projects.
+          activeGroupRef.current > 0 &&
+            top <= PIN_EPSILON &&
+            top > -height - distance;
+    };
+
+    const pinProjects = () => {
+      if (controllerStateRef.current !== "normal") return;
+      lastLockActivityRef.current = performance.now();
+      setControllerState("pinned");
+      scrollInstantlyTo(window.scrollY + section.getBoundingClientRect().top);
+    };
+
+    // Put the section exactly back on the viewport after layout shifts or stray scroll.
+    const realign = () => {
+      const top = section.getBoundingClientRect().top;
+      if (Math.abs(top) > PIN_EPSILON) scrollInstantlyTo(window.scrollY + top);
+    };
+
+    const realignIfPinned = () => {
+      if (!desktop.matches || galleryOpenRef.current) return;
+      const state = controllerStateRef.current;
+      if (state === "pinned" || state === "transitioning") realign();
+    };
+
+    const forceRelease = (group: number) => {
+      clearTransitionTimer();
+      transitionIdRef.current += 1;
+      setGroup(group);
+      setControllerState("normal");
+    };
+
+    const handleIntent = (
+      direction: ScrollDirection,
+      distance: number,
+      preventDefault: () => void,
+      isTouch = false,
+    ) => {
+      if (distance <= 0) return;
+      const state = controllerStateRef.current;
+
+      if (state === "pinned" || state === "transitioning") realign();
+
+      if (state === "transitioning") {
+        preventDefault();
+        return;
+      }
+
+      if (state === "pinned") {
+        if (isTouch && touchConsumed) {
+          preventDefault();
+          return;
+        }
+        // Swallow the tail of the gesture that pinned the section.
+        const sinceActivity = performance.now() - lastLockActivityRef.current;
+        if (sinceActivity < PIN_SETTLE_MS) {
+          preventDefault();
+          return;
+        }
+        const nextGroup =
+          activeGroupRef.current + (direction === "down" ? 1 : -1);
+        if (nextGroup < 0 || nextGroup > LAST_GROUP_INDEX) {
+          // Edge: only release on a fresh gesture, not momentum from the last group change.
+          if (sinceActivity < EDGE_RELEASE_SETTLE_MS) {
+            preventDefault();
+            return;
+          }
+          setControllerState("normal");
+          return;
+        }
+        preventDefault();
+        if (isTouch) touchConsumed = true;
+        changeGroup(nextGroup);
+        return;
+      }
+
+      if (
+        state === "normal" &&
+        canPin(direction, section.getBoundingClientRect().top, distance)
+      ) {
+        preventDefault();
+        if (isTouch) touchConsumed = true;
+        pinProjects();
+      }
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.deltaY === 0) return; // ctrl+wheel = zoom
+      if (!isEnabled() || navbarBusy()) return;
+      noteInput(WHEEL_INPUT_GRACE_MS);
+
+      const delta =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? event.deltaY * 16
+          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? event.deltaY * window.innerHeight
+            : event.deltaY;
+      const direction: ScrollDirection = delta > 0 ? "down" : "up";
+
+      // Let the expanded card scroll its own content without changing groups.
+      if (innerScrollerCanScroll(event.target, direction)) {
+        wheelConsumed = true;
+        armWheelIdleTimer();
+        return;
+      }
+
+      armWheelIdleTimer();
+      const state = controllerStateRef.current;
+      if (wheelConsumed && (state === "pinned" || state === "transitioning")) {
+        event.preventDefault();
+        return;
+      }
+
+      handleIntent(direction, Math.abs(delta), () => {
+        wheelConsumed = true;
+        event.preventDefault();
+      });
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      touchY = event.touches[0]?.clientY ?? null;
+      touchConsumed = false;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const nextY = event.touches[0]?.clientY;
+      if (touchY === null || nextY === undefined) return;
+      const movement = touchY - nextY;
+      touchY = nextY;
+      if (movement === 0) return;
+      if (!isEnabled() || navbarBusy()) return;
+      noteInput(TOUCH_INPUT_GRACE_MS);
+
+      const direction: ScrollDirection = movement > 0 ? "down" : "up";
+      if (innerScrollerCanScroll(event.target, direction)) {
+        touchConsumed = true;
+        return;
+      }
+      handleIntent(
+        direction,
+        Math.abs(movement),
+        () => {
+          if (event.cancelable) event.preventDefault();
+        },
+        true,
+      );
+    };
+
+    const handleTouchEnd = () => {
+      touchY = null;
+      touchConsumed = false;
+      noteInput(TOUCH_INPUT_GRACE_MS); // keep the grace window open for touch momentum
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      )
+        return;
+      if (!isEnabled() || navbarBusy()) return;
+
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        if (
+          target.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)
+        )
+          return;
+        if (event.key === " " && target.closest("button, a, summary")) return;
+      }
+
+      noteInput(WHEEL_INPUT_GRACE_MS);
+      const state = controllerStateRef.current;
+
+      if (event.key === "Home" || event.key === "End") {
+        // Jump keys aren't a one-group gesture: leave at the matching edge and let the browser jump.
+        if (state === "pinned" || state === "transitioning") {
+          forceRelease(event.key === "End" ? LAST_GROUP_INDEX : 0);
+        }
+        jumpUntil = performance.now() + JUMP_KEY_GRACE_MS;
+        return;
+      }
+
+      const direction: ScrollDirection | null =
+        event.key === "ArrowDown" || event.key === "PageDown"
+          ? "down"
+          : event.key === "ArrowUp" || event.key === "PageUp"
+            ? "up"
+            : event.key === " "
+              ? event.shiftKey
+                ? "up"
+                : "down"
+              : null;
+      if (!direction) return;
+
+      // Holding a key must not chain through every group and out of the section.
+      if (event.repeat && state !== "normal") {
+        event.preventDefault();
+        return;
+      }
+
+      handleIntent(
+        direction,
+        event.key === "ArrowDown" || event.key === "ArrowUp"
+          ? 40
+          : window.innerHeight,
+        () => event.preventDefault(),
+      );
+    };
+
+    /*
+     * Safety net. Runs after the browser has moved the document, so it also
+     * catches smooth-scroll animation, momentum and fast flicks that passed the
+     * boundary between wheel events.
+     */
+    const handleScroll = () => {
+      const y = window.scrollY;
+      const previous = lastScrollYRef.current;
+      lastScrollYRef.current = y;
+
+      if (!isEnabled()) {
+        lastScrollYRef.current = null;
+        return;
+      }
+      if (navbarBusy()) return;
+
+      const state = controllerStateRef.current;
+      const rect = section.getBoundingClientRect();
+
+      if (state === "pinned" || state === "transitioning") {
+        if (Math.abs(rect.top) <= PIN_EPSILON) return;
+        if (!hasRecentInput() && Math.abs(rect.top) > NATIVE_JUMP_THRESHOLD) {
+          // Scrollbar drag / autoscroll / anchor jump: the visitor is leaving on purpose.
+          forceRelease(rect.top < 0 ? LAST_GROUP_INDEX : 0);
+          return;
+        }
+        scrollInstantlyTo(y + rect.top);
+        return;
+      }
+
+      if (state !== "normal") return;
+      if (syncGroupToPosition()) return;
+      if (isJumping() || previous === null || previous === y) return;
+
+      // Only pin movement that came from the visitor, not a scrollbar drag.
+      if (!hasRecentInput()) return;
+
+      const direction: ScrollDirection = y > previous ? "down" : "up";
+      if (canPin(direction, rect.top, 0)) {
+        consumeActiveGesture();
+        pinProjects();
+      }
+    };
+
+    const handleNavbarStart = () => {
+      clearTransitionTimer();
+      transitionIdRef.current += 1;
+      wheelConsumed = false;
+      touchConsumed = false;
+      if (wheelIdleTimer !== null) {
+        window.clearTimeout(wheelIdleTimer);
+        wheelIdleTimer = null;
+      }
+      setControllerState("navbar");
+    };
+
+    const handleNavbarEnd = () => {
+      if (controllerStateRef.current !== "navbar") return;
+      setControllerState("normal");
+      lastScrollYRef.current = window.scrollY;
+      if (!desktop.matches) return;
+
+      // The navbar landed on Projects itself: show the first group, pinned.
+      if (
+        Math.abs(section.getBoundingClientRect().top) <
+        window.innerHeight * 0.5
+      ) {
+        setGroup(0);
+        pinProjects();
+      } else {
+        syncGroupToPosition();
+      }
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(realignIfPinned)
+        : null;
+    resizeObserver?.observe(document.body);
+
+    const handleDesktopChange = () => {
+      setIsDesktop(desktop.matches);
+      if (!desktop.matches) {
+        clearTransitionTimer();
+        transitionIdRef.current += 1;
+        setControllerState("normal");
+        setGroup(0);
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, {
+      capture: true,
+      passive: false,
+    });
+    window.addEventListener("touchstart", handleTouchStart, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("touchmove", handleTouchMove, {
+      capture: true,
+      passive: false,
+    });
+    window.addEventListener("touchend", handleTouchEnd, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("touchcancel", handleTouchEnd, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", realignIfPinned);
+    window.addEventListener(NAVBAR_NAVIGATION_START, handleNavbarStart);
+    window.addEventListener(NAVBAR_NAVIGATION_END, handleNavbarEnd);
+    desktop.addEventListener("change", handleDesktopChange);
+
+    lastScrollYRef.current = window.scrollY;
+    syncGroupToPosition();
+
+    return () => {
+      window.removeEventListener("wheel", handleWheel, true);
+      window.removeEventListener("touchstart", handleTouchStart, true);
+      window.removeEventListener("touchmove", handleTouchMove, true);
+      window.removeEventListener("touchend", handleTouchEnd, true);
+      window.removeEventListener("touchcancel", handleTouchEnd, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", realignIfPinned);
+      resizeObserver?.disconnect();
+      window.removeEventListener(NAVBAR_NAVIGATION_START, handleNavbarStart);
+      window.removeEventListener(NAVBAR_NAVIGATION_END, handleNavbarEnd);
+      desktop.removeEventListener("change", handleDesktopChange);
+      if (wheelIdleTimer !== null) window.clearTimeout(wheelIdleTimer);
+      clearTransitionTimer();
+      transitionIdRef.current += 1;
+      setControllerState("normal");
+    };
+  }, [changeGroup, clearTransitionTimer, setControllerState, setGroup]);
+
+  return (
+    <section
+      ref={sectionRef}
+      id="projects"
+      className="
+        relative
+        z-20
+        h-screen
+        max-[1023px]:h-auto
+        w-full
+        bg-transparent
+      "
+    >
+      <div
+        data-scroll-reveal
+        className="
+          mx-auto
+          flex
+          h-screen
+          w-full
+          max-w-[1200px]
+          items-center
+          gap-[80px]
+          px-[40px]
+
+          max-[1100px]:gap-[50px]
+
+          max-[1023px]:h-auto
+          max-[1023px]:flex-col
+          max-[1023px]:items-stretch
+          max-[1023px]:gap-[40px]
+          max-[1023px]:px-[40px]
+          max-[500px]:px-6
+          max-[1023px]:py-[80px]
+        "
+      >
+        {/* =====================================================
+            LEFT SIDE
+            ===================================================== */}
+
+        <div
+          className="
+            w-[320px]
+            shrink-0
+            self-start
+            pt-[40px]
+
+            max-[1100px]:w-[280px]
+
+            max-[1023px]:w-full
+            max-[1023px]:pt-0
+          "
+        >
+          <h2
+            className="
+              m-0
+              whitespace-nowrap
+              font-[family-name:var(--font-poppins)]
+              text-[56px]
+              max-[500px]:text-[clamp(40px,12vw,56px)]
+              font-bold
+              leading-[84px]
+              tracking-[0.8px]
+              text-[#111111]
+            "
+          >
+            PROJECTS
+          </h2>
+
+          <p
+            className="
+              m-0
+              mt-[24px]
+              w-[320px]
+              max-w-full
+              font-[family-name:var(--font-poppins)]
+              text-[16px]
+              font-normal
+              leading-[24px]
+              text-[#111111]/60
+            "
+          >
+            A curated selection of my recent work, from full-stack applications
+            to creative experiments.
+          </p>
+        </div>
+
+        {/* =====================================================
+            RIGHT PROJECT VIEWPORT
+            ===================================================== */}
+
+        <div
+          className="
+            relative
+            h-[608px]
+            w-full
+            min-w-0
+            overflow-hidden
+
+            max-[1023px]:h-auto
+            max-[1023px]:overflow-visible
+          "
+        >
+          <div
+            className="
+              flex
+              w-full
+              flex-col
+              transition-transform
+              duration-[650ms]
+              ease-[cubic-bezier(0.22,1,0.36,1)]
+
+              max-[1023px]:transform-none
+            "
+            onTransitionEnd={handleGroupTransitionEnd}
+            style={{
+              transform: isDesktop
+                ? `translate3d(0, -${activeGroup * GROUP_HEIGHT}px, 0)`
+                : "none",
+              transition: controllerState === "transitioning" ? undefined : "none",
+            }}
+          >
+            {/*
+             * ==================================================
+             * DYNAMIC PROJECT GROUPS
+             * ==================================================
+             *
+             * This automatically creates:
+             *
+             * 01 02 03
+             * 04 05 06
+             * 07 08 09
+             *
+             * If project 10 is added:
+             *
+             * 01 02 03
+             * 04 05 06
+             * 07 08 09
+             * 10
+             *
+             * No other code needs to be changed.
+             */}
+
+            {Array.from({
+              length: GROUP_COUNT,
+            }).map((_, groupIndex) => {
+              const start = groupIndex * PROJECTS_PER_GROUP;
+
+              const end = start + PROJECTS_PER_GROUP;
+
+              return (
+                <ProjectGroup
+                  key={groupIndex}
+                  projects={projects.slice(start, end)}
+                  selectedProject={selectedProject}
+                  onOpen={openProject}
+                  onClose={closeProject}
+                  onOpenImage={(project, imageIndex) =>
+                    setGallerySelection({ project, imageIndex })
+                  }
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {gallerySelection &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ImageLightbox
+            selection={gallerySelection}
+            onClose={() => setGallerySelection(null)}
+            onChange={(imageIndex) =>
+              setGallerySelection(
+                (current) => current && { ...current, imageIndex },
+              )
+            }
+          />,
+          document.body,
+        )}
+    </section>
+  );
+}
+
+/*
+ * =============================================================
+ * PROJECT GROUP
+ * =============================================================
+ *
+ * Each group is EXACTLY 608px:
+ *
+ * 190 + 14 + 190 + 14 + 190 = 608
+ *
+ * Therefore the viewport shows exactly 3 cards.
+ */
+
+function ProjectGroup({
+  projects: groupProjects,
+  selectedProject,
+  onOpen,
+  onClose,
+  onOpenImage,
+}: {
+  projects: Project[];
+  selectedProject: Project | null;
+  onOpen: (project: Project) => void;
+  onClose: () => void;
+  onOpenImage: (project: Project, imageIndex: number) => void;
+}) {
+  const selectedIndex = selectedProject
+    ? groupProjects.findIndex(
+        (project) => project.number === selectedProject.number,
+      )
+    : -1;
+
+  const isExpanded = selectedIndex !== -1;
+
+  return (
+    <div
+      className="
+        relative
+        h-[608px]
+        w-full
+        shrink-0
+        overflow-hidden
+        max-[700px]:flex
+        max-[700px]:flex-col
+        max-[700px]:gap-[14px]
+        max-[700px]:h-auto
+        max-[700px]:overflow-visible
+      "
+    >
+      {groupProjects.map((project, index) => {
+        const isSelected = selectedProject?.number === project.number;
+
+        /*
+         * Normal positions:
+         *
+         * 01 → 0
+         * 02 → 204
+         * 03 → 408
+         */
+
+        const normalTop = index * (CARD_HEIGHT + GAP);
+        const mobileCardHeight = isSelected
+          ? EXPANDED_HEIGHT
+          : MOBILE_CARD_MIN_HEIGHT;
+
+        let translateY = 0;
+
+        if (isExpanded) {
+          /*
+           * ---------------------------------------------------
+           * SELECTED PROJECT
+           * ---------------------------------------------------
+           */
+
+          if (isSelected) {
+            translateY = -normalTop;
+          } else if (index < selectedIndex) {
+            /*
+             * Projects above selected.
+             */
+
+            const selectedNormalTop = selectedIndex * (CARD_HEIGHT + GAP);
+
+            translateY = -selectedNormalTop;
+          } else {
+            /*
+             * Projects below selected.
+             */
+
+            const cardsBelow = index - selectedIndex - 1;
+
+            const expandedStart = EXPANDED_HEIGHT + GAP;
+
+            const additionalOffset = cardsBelow * (CARD_HEIGHT + GAP);
+
+            const targetTop = expandedStart + additionalOffset;
+
+            translateY = targetTop - normalTop;
+          }
+        }
+
+        return (
+          <div
+            key={project.number}
+            className="
+                absolute
+                left-0
+                right-0
+                transition-[transform,height]
+                duration-[700ms]
+                ease-[cubic-bezier(0.22,1,0.36,1)]
+                max-[700px]:relative
+                max-[700px]:inset-auto
+                max-[700px]:w-full
+                max-[700px]:shrink-0
+                max-[700px]:transition-none
+                max-[700px]:!h-auto
+              "
+            style={{
+              top: normalTop,
+              height: isSelected ? EXPANDED_HEIGHT : CARD_HEIGHT,
+              ["--mobile-card-height" as string]: `${mobileCardHeight}px`,
+              transform: `translate3d(0, ${translateY}px, 0)`,
+              willChange: "transform, height",
+            }}
+          >
+            <ProjectCard
+              project={project}
+              expanded={isSelected}
+              onOpen={() => onOpen(project)}
+              onClose={onClose}
+              onOpenImage={(imageIndex) => onOpenImage(project, imageIndex)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/*
+ * =============================================================
+ * PROJECT CARD
+ * =============================================================
+ */
+
+function ProjectCard({
+  project,
+  expanded,
+  onOpen,
+  onClose,
+  onOpenImage,
+}: {
+  project: Project;
+  expanded: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onOpenImage: (imageIndex: number) => void;
+}) {
+  return (
+    <div
+      className="
+        relative
+        h-full
+        w-full
+      "
+    >
+      {/* =====================================================
+          BLACK OFFSET
+          ===================================================== */}
+
+      <div
+        aria-hidden="true"
+        className="
+          absolute
+          left-[18px]
+          top-[10px]
+          w-[calc(100%-36px)]
+          rounded-b-[12px]
+          bg-[#282724]
+          max-[700px]:hidden
+          transition-[height]
+          duration-[700ms]
+          ease-[cubic-bezier(0.22,1,0.36,1)]
+        "
+        style={{
+          height: expanded ? EXPANDED_HEIGHT : CARD_HEIGHT,
+        }}
+      />
+
+      {/* =====================================================
+          WHITE CARD
+          ===================================================== */}
+
+      <div
+        className="
+          absolute
+          inset-x-0
+          top-0
+          z-10
+          box-border
+          w-full
+          overflow-hidden
+          max-[700px]:relative
+          max-[700px]:inset-auto
+          max-[700px]:flex
+          max-[700px]:h-auto
+          max-[700px]:min-h-0
+          max-[700px]:min-h-[var(--mobile-card-height)]
+          max-[700px]:flex-col
+          max-[700px]:overflow-visible
+          max-[700px]:rounded-[12px]
+          border
+          border-[#111111]
+          bg-white
+          font-[family-name:var(--font-poppins)]
+          transition-[height]
+          duration-[700ms]
+          ease-[cubic-bezier(0.22,1,0.36,1)]
+        "
+        style={{
+          height: expanded ? EXPANDED_HEIGHT : CARD_HEIGHT,
+        }}
+      >
+        {/* ===================================================
+            HEADER
+            =================================================== */}
+
+        <button
+          type="button"
+          onClick={expanded ? undefined : onOpen}
+          className={`
+            z-20
+            block
+            w-full
+            border-0
+            bg-transparent
+            px-[36px]
+            pt-[24px]
+            max-[700px]:relative
+            max-[700px]:px-5
+            max-[700px]:pt-5
+            max-[700px]:pb-0
+            max-[700px]:shrink-0
+            text-left
+            ${expanded ? "cursor-default" : "cursor-pointer"}
+          `}
+        >
+          {/* NUMBER + TECHNOLOGY */}
+
+          <div
+            className="
+              flex
+              w-full
+              items-center
+              justify-between
+              max-[700px]:items-start
+              max-[700px]:gap-3
+            "
+          >
+            <span
+              className="
+                font-[family-name:var(--font-poppins)]
+                text-[14px]
+                font-semibold
+                leading-[21px]
+                tracking-[1px]
+                text-[#1769D5]
+              "
+            >
+              {project.number}
+            </span>
+
+            <span
+              className="
+                max-w-[70%]
+                text-right
+                max-[700px]:max-w-[72%]
+                max-[700px]:whitespace-normal
+                max-[700px]:break-words
+                max-[700px]:text-[11px]
+                max-[700px]:leading-[16px]
+                font-[family-name:var(--font-poppins)]
+                text-[12px]
+                font-normal
+                uppercase
+                leading-[18px]
+                text-[#111111]/50
+              "
+            >
+              {project.tech}
+            </span>
+          </div>
+
+          {/* TITLE */}
+
+          <h3
+            className="
+              m-0
+              mt-[12px]
+              font-[family-name:var(--font-poppins)]
+              text-[24px]
+              max-[700px]:text-[20px]
+              max-[700px]:leading-[28px]
+              max-[700px]:break-words
+              font-semibold
+              leading-[36px]
+              tracking-[0.1px]
+              text-[#111111]
+            "
+          >
+            {project.title}
+          </h3>
+
+          {/* DESCRIPTION */}
+
+          <p
+            className="
+              m-0
+              mt-[2px]
+              max-w-[820px]
+              font-[family-name:var(--font-poppins)]
+              text-[14px]
+              max-[700px]:text-[13px]
+              max-[700px]:leading-[20px]
+              max-[700px]:pb-1
+              max-[700px]:break-words
+              font-normal
+              leading-[21px]
+              text-[#111111]/70
+            "
+          >
+            {project.description}
+          </p>
+        </button>
+
+        {/* ===================================================
+            NORMAL VIEW PROJECT
+            =================================================== */}
+
+        {!expanded && (
+          <button
+            type="button"
+            onClick={onOpen}
+            className="
+              group/view
+              z-30
+              flex
+              cursor-pointer
+              items-center
+              gap-[8px]
+              border-0
+              bg-transparent
+              p-0
+              font-[family-name:var(--font-poppins)]
+              text-[14px]
+              font-semibold
+              leading-[21px]
+              text-[#111111]
+              underline
+              underline-offset-[3px]
+              max-[700px]:relative
+              max-[700px]:mt-5
+              max-[700px]:mb-5
+              max-[700px]:ml-5
+              max-[700px]:self-start
+              max-[700px]:shrink-0
+            "
+          >
+            <span>View Project</span>
+
+            <span
+              className="
+                no-underline
+                transition-transform
+                duration-300
+                group-hover/view:translate-x-[5px]
+              "
+            >
+              →
+            </span>
+          </button>
+        )}
+
+        {/* ===================================================
+            EXPANDED CONTENT
+            =================================================== */}
+
+        {expanded && (
+          <div
+            className="
+              absolute
+              left-[36px]
+              right-[36px]
+              top-[168px]
+              bottom-[76px]
+              max-[700px]:left-5
+              max-[700px]:right-5
+              max-[700px]:top-[120px]
+              max-[700px]:bottom-[68px]
+              overflow-y-auto
+              overscroll-y-contain
+              min-w-0
+              pr-1
+            "
+            data-projects-scroll
+          >
+            {/* DIVIDER */}
+
+            <div
+              className="
+                h-px
+                w-full
+                bg-[#111111]/15
+              "
+            />
+
+            {/* PROJECT OVERVIEW */}
+
+            <div className="mt-[14px]">
+              <h4
+                className="
+                  m-0
+                  font-[family-name:var(--font-poppins)]
+                  text-[12px]
+                  font-semibold
+                  uppercase
+                  tracking-[1.5px]
+                  text-[#1769D5]
+                "
+              >
+                Project Overview
+              </h4>
+
+              <p
+                className="
+                  m-0
+                  mt-[8px]
+                  max-w-[800px]
+                  font-[family-name:var(--font-poppins)]
+                  text-[14px]
+                  leading-[22px]
+                  text-[#111111]/75
+                "
+              >
+                {project.description}
+              </p>
+            </div>
+
+            {/* KEY FEATURES */}
+
+            <div className="mt-[14px]">
+              <h4
+                className="
+                  m-0
+                  font-[family-name:var(--font-poppins)]
+                  text-[12px]
+                  font-semibold
+                  uppercase
+                  tracking-[1.5px]
+                  text-[#1769D5]
+                "
+              >
+                Key Features
+              </h4>
+
+              <div
+                className="
+                  mt-[9px]
+                  grid
+                grid-cols-2
+                max-[400px]:grid-cols-1
+                  gap-x-[30px]
+                  gap-y-[7px]
+                "
+              >
+                <Feature text="Responsive user interface" />
+
+                <Feature text="Full-stack application architecture" />
+
+                <Feature text="Dynamic data management" />
+
+                <Feature text="Secure and reliable functionality" />
+              </div>
+            </div>
+
+            {/* TECHNOLOGY */}
+
+            <div className="mt-[14px]">
+              <h4
+                className="
+                  m-0
+                  font-[family-name:var(--font-poppins)]
+                  text-[12px]
+                  font-semibold
+                  uppercase
+                  tracking-[1.5px]
+                  text-[#1769D5]
+                "
+              >
+                Technology
+              </h4>
+
+              <p
+                className="
+                  m-0
+                  mt-[8px]
+                  font-[family-name:var(--font-poppins)]
+                  text-[14px]
+                  leading-[22px]
+                  text-[#111111]/75
+                "
+              >
+                {project.tech}
+              </p>
+            </div>
+
+            {projectImages(project).length > 0 && (
+              <div className="mt-[14px] min-w-0 shrink-0">
+                <h4 className="m-0 font-[family-name:var(--font-poppins)] text-[12px] font-semibold uppercase tracking-[1.5px] text-[#1769D5]">
+                  Screenshots
+                </h4>
+                <div
+                  className="mt-[8px] flex min-w-0 gap-[10px] overflow-x-auto overscroll-x-contain pb-2 pr-2"
+                  aria-label={`${project.title} screenshots`}
+                >
+                  {projectImages(project).map((src, imageIndex) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => onOpenImage(imageIndex)}
+                      aria-label={`Open screenshot ${imageIndex + 1} for ${project.title}`}
+                      className="h-[82px] w-[132px] shrink-0 cursor-zoom-in overflow-hidden rounded-[8px] border border-[#111111]/20 bg-[#f4f3ef] p-0 transition-[transform,box-shadow] duration-200 hover:scale-[1.02] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1769D5]"
+                    >
+                      <img
+                        src={src}
+                        alt={`${project.title} screenshot ${imageIndex + 1}`}
+                        className="h-full w-full object-cover transition-opacity hover:opacity-85"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===================================================
+            EXPANDED BOTTOM ACTIONS
+            =================================================== */}
+
+        {expanded && (
+          <div
+            className="
+              absolute
+              bottom-[24px]
+              left-[36px]
+              right-[36px]
+              z-30
+              flex
+              items-center
+              justify-between
+            "
+          >
+            {/* BACK */}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="
+                cursor-pointer
+                border-0
+                bg-transparent
+                p-0
+                font-[family-name:var(--font-poppins)]
+                text-[14px]
+                font-semibold
+                text-[#111111]
+                underline
+                underline-offset-[3px]
+                transition-transform
+                duration-300
+                hover:-translate-x-[3px]
+              "
+            >
+              ← Back to Projects
+            </button>
+
+            {/* LINKS */}
+
+            <div
+              className="
+                flex
+                items-center
+                gap-[24px]
+              "
+            >
+              {project.githubUrl && (<a
+                href={project.githubUrl ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="
+                  font-[family-name:var(--font-poppins)]
+                  text-[14px]
+                  font-semibold
+                  text-[#111111]
+                  underline
+                  underline-offset-[3px]
+                "
+              >
+                GitHub →
+              </a>)}
+
+              {project.liveUrl && (
+                <a
+                  href={project.liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                  font-[family-name:var(--font-poppins)]
+                  text-[14px]
+                  font-semibold
+                  text-[#111111]
+                  underline
+                  underline-offset-[3px]
+                "
+                >
+                  Live Project →
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/*
+ * =============================================================
+ * FEATURE ITEM
+ * =============================================================
+ */
+
+function Feature({ text }: { text: string }) {
+  return (
+    <div
+      className="
+        flex
+        items-start
+        gap-[9px]
+        font-[family-name:var(--font-poppins)]
+        text-[13px]
+        leading-[20px]
+        text-[#111111]/75
+      "
+    >
+      <span
+        className="
+          mt-[8px]
+          h-[4px]
+          w-[4px]
+          shrink-0
+          rounded-full
+          bg-[#1769D5]
+        "
+      />
+
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function ImageLightbox({
+  selection,
+  onClose,
+  onChange,
+}: {
+  selection: GallerySelection;
+  onClose: () => void;
+  onChange: (imageIndex: number) => void;
+}) {
+  const { project, imageIndex } = selection;
+  const images = projectImages(project);
+  return (
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/85 p-4 sm:p-8"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close image"
+        className="absolute right-4 top-4 z-10 rounded-full bg-white px-4 py-2 font-semibold text-[#111] shadow-lg sm:right-8 sm:top-8"
+      >
+        Close <span aria-hidden="true">×</span>
+      </button>
+      <div
+        className="flex max-h-full max-w-full flex-col items-center gap-3"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${project.title} screenshot ${imageIndex + 1}`}
+      >
+        <img
+          src={images[imageIndex]}
+          alt={`${project.title} screenshot ${imageIndex + 1}`}
+          className="max-h-[82vh] max-w-[92vw] rounded-[8px] object-contain shadow-2xl"
+          onMouseDown={(event) => event.stopPropagation()}
+        />
+        {images.length > 1 && (
+          <div className="flex items-center gap-5 text-white">
+            <button
+              type="button"
+              onClick={() =>
+                onChange((imageIndex - 1 + images.length) % images.length)
+              }
+              aria-label="Previous screenshot"
+              className="rounded px-3 py-1 hover:bg-white/15"
+            >
+              ← Previous
+            </button>
+            <span aria-live="polite">
+              {imageIndex + 1} / {images.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange((imageIndex + 1) % images.length)}
+              aria-label="Next screenshot"
+              className="rounded px-3 py-1 hover:bg-white/15"
+            >
+              Next →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

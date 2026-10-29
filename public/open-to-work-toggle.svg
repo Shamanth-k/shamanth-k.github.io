@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="52" viewBox="0 0 210 52" fill="none" role="img" aria-labelledby="title">
+  <title id="title">OPEN TO WORK</title>
+  <defs>
+    <filter id="pill-shadow" x="-8%" y="-18%" width="116%" height="205%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dy="1"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.12"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="knob-shadow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
+      <feOffset dy="1"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.2"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#pill-shadow)">
+    <rect x="2" y="2" width="206" height="48" rx="24" fill="#FFFFFF" stroke="#E1E1E1"/>
+    <text x="16" y="32" fill="#111111" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="0.35">OPEN TO WORK</text>
+    <rect x="150" y="12" width="46" height="28" rx="14" fill="#3478F6"/>
+    <circle cx="182" cy="26" r="10" fill="#FFFFFF" filter="url(#knob-shadow)"/>
+  </g>
+</svg>

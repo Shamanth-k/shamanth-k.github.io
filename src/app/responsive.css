@@ -1,0 +1,9 @@
+@media (max-width: 700px) {
+  details:not([open]) > #mobile-navigation {
+    display: none;
+  }
+
+  #playground {
+    overflow-x: clip;
+  }
+}
