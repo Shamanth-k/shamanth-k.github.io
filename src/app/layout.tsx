@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import Clarity from "@microsoft/clarity";
+import ClarityAnalytics from "./Clarity";
 import structuredData from "./structured-data";
 import {
   Inter,
