@@ -47,7 +47,7 @@ const justMeAgainDownHere = Just_Me_Again_Down_Here({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://shamanth-prfolio.netlify.app",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://shamanth-k.github.io",
   ),
   title: {
     default: "Shamanth Krishna V R | Full-Stack Developer & DevOps Enthusiast",
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     siteName: "Shamanth Krishna V R",
     images: [
       {
-        url: "/about-photo.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "Shamanth Krishna V R portfolio",
