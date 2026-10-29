@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import structuredData from "./structured-data";
 import {
   Inter,
   Poppins,
@@ -111,6 +112,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${poppins.variable} ${jersey15.variable} ${jersey10.variable} ${justAnotherHand.variable} ${justMeAgainDownHere.variable}`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+          }}
+        />
         {children}
         <GoogleAnalytics gaId="G-FST8C20J8Y" />
       </body>
