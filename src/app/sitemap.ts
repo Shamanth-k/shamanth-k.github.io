@@ -1,12 +1,11 @@
 import type { MetadataRoute } from "next";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://shamanth-prfolio.netlify.app";
+export const dynamic = "force-static";
 
+export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: siteUrl,
+      url: "https://YOUR-GITHUB-USERNAME.github.io/legacy-portfolio/",
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 1,

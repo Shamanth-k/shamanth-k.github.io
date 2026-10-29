@@ -1,5 +1,5 @@
 "use client";
-
+import type { CSSProperties } from "react";
 import {
   Fragment,
   useCallback,
@@ -578,27 +578,29 @@ export default function Skills() {
         }}
         data-skill-pill={skill.name}
         className={`${pillClass} relative select-none cursor-grab${isDragging ? " cursor-grabbing" : ""}`}
-        style={{
-          "--pill-background":
-            skill.name === "CI/CD" ||
-            skill.name === "Kubernetes" ||
-            skill.name === "Linux" ||
-            skill.name === "MySQL"
-              ? skill.name === "CI/CD"
-                ? "#FFE991"
-                : skill.color
-              : "#F7F6F2",
-          backgroundColor:
-            skill.name === "CI/CD" ||
-            skill.name === "Kubernetes" ||
-            skill.name === "Linux" ||
-            skill.name === "MySQL"
-              ? skill.name === "CI/CD"
-                ? "#FFE991"
-                : skill.color
-              : "rgba(255,255,255,0.04)",
-          opacity: isDragging ? 0.2 : 1,
-        }}
+        style={
+          {
+            "--pill-background":
+              skill.name === "CI/CD" ||
+              skill.name === "Kubernetes" ||
+              skill.name === "Linux" ||
+              skill.name === "MySQL"
+                ? skill.name === "CI/CD"
+                  ? "#FFE991"
+                  : skill.color
+                : "#F7F6F2",
+            backgroundColor:
+              skill.name === "CI/CD" ||
+              skill.name === "Kubernetes" ||
+              skill.name === "Linux" ||
+              skill.name === "MySQL"
+                ? skill.name === "CI/CD"
+                  ? "#FFE991"
+                  : skill.color
+                : "rgba(255,255,255,0.04)",
+            opacity: isDragging ? 0.2 : 1,
+          } as CSSProperties & Record<`--${string}`, string>
+        }
         transition={{ layout: { duration: 0.24, ease: LAYOUT_EASE } }}
         draggable={false}
         onPointerDown={handlePointerDown(skill.name)}
