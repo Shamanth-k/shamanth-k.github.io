@@ -177,16 +177,19 @@ export default function Hero() {
         <img
           src="/hero-wireframe-profile.svg"
           alt=""
+          fetchPriority="high"
           className="animate-float-slow absolute left-[clamp(18px,5vw,70px)] top-[34%] h-auto w-[clamp(150px,18vw,210px)] drop-shadow-[0_5px_10px_rgba(0,0,0,0.04)] max-[767px]:left-auto max-[767px]:right-2 max-[767px]:top-[14%] max-[767px]:w-[96px]"
         />
         <img
           src="/hero-wireframe-contact.svg"
           alt=""
+          loading="lazy"
           className="animate-float-delayed absolute left-[clamp(90px,15vw,300px)] top-[75%] h-auto w-[clamp(155px,17vw,210px)] drop-shadow-[0_5px_10px_rgba(0,0,0,0.04)] max-[767px]:left-2 max-[767px]:top-[78%] max-[767px]:w-[112px]"
         />
         <img
           src="/hero-wireframe-cursor.svg"
           alt=""
+          loading="lazy"
           className="animate-float-delayed absolute bottom-[clamp(24px,6vh,60px)] right-[clamp(20px,6vw,88px)] h-auto w-[clamp(155px,17vw,210px)] drop-shadow-[0_5px_10px_rgba(0,0,0,0.04)] max-[767px]:bottom-[22%] max-[767px]:right-3 max-[767px]:w-[104px]"
           style={{ animationDelay: "-1.7s" }}
         />

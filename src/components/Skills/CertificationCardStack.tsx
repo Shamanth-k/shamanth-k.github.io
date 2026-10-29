@@ -393,6 +393,7 @@ export default function CertificationCardStack() {
             <img
               src={selectedCertificate.url}
               alt={selectedCertificate.title}
+              loading="lazy"
               className="max-h-[65dvh] max-w-full object-contain"
             />
           ) : (

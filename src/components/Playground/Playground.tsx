@@ -1565,6 +1565,7 @@ export default function Playground() {
           <img
             src="/arrows/heading-underline.svg"
             alt=""
+            loading="lazy"
             className="
 
     pointer-events-none
